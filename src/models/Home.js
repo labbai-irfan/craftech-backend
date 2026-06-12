@@ -2,6 +2,21 @@ const mongoose = require('mongoose');
 const baseSchema = require('./plugins/baseSchema');
 
 const homeSchema = new mongoose.Schema({
+  // ── Section Visibility & Order ──────────────────────────────────────
+  sections: [{
+    type: String,
+    enum: ['hero', 'stats', 'about', 'services', 'pillars', 'process', 'portfolio', 'videos', 'why', 'testimonials', 'clients', 'contact'],
+    required: true
+  }],
+  sectionOrder: [{
+    sectionName: {
+      type: String,
+      enum: ['hero', 'stats', 'about', 'services', 'pillars', 'process', 'portfolio', 'videos', 'why', 'testimonials', 'clients', 'contact']
+    },
+    order: { type: Number },
+    isVisible: { type: Boolean, default: true }
+  }],
+
   // Hero Section
   heroSlides: [{
     title: { type: String },
@@ -10,8 +25,8 @@ const homeSchema = new mongoose.Schema({
     imagePublicId: { type: String },
     order: { type: Number, default: 0 }
   }],
-  ctaText: { type: String, default: 'Contact Us' },
-  ctaLink: { type: String, default: '/contact' },
+  ctaText: { type: String, default: 'Talk to an Expert' },
+  ctaLink: { type: String, default: '#contact' },
 
   // About Section
   aboutTitle: { type: String },

@@ -145,13 +145,28 @@ exports.deleteClient = catchAsync(async (req, res) => {
 
 // ── Leads ───────────────────────────────────────────────────────────────────
 exports.getAllLeads = catchAsync(async (req, res) => {
-  const items = await Lead.find().sort({ createdAt: -1 });
+  const { status } = req.query;
+  const filter = status ? { status } : {};
+  const items = await Lead.find(filter).sort({ createdAt: -1 });
   res.json({ success: true, data: items });
+});
+
+exports.getLeadsByStatus = catchAsync(async (req, res) => {
+  const items = await Lead.find().sort({ createdAt: -1 });
+  const grouped = {
+    new: items.filter(l => l.status === 'new'),
+    contacted: items.filter(l => l.status === 'contacted'),
+    quoted: items.filter(l => l.status === 'quoted'),
+    negotiating: items.filter(l => l.status === 'negotiating'),
+    booked: items.filter(l => l.status === 'booked'),
+    rejected: items.filter(l => l.status === 'rejected'),
+  };
+  res.json({ success: true, data: grouped });
 });
 
 exports.createLead = catchAsync(async (req, res) => {
   const item = await Lead.create(req.body);
-  
+
   // Send notification email (don't await so we don't delay the response)
   emailService.sendContactEmail(item);
 
@@ -159,8 +174,28 @@ exports.createLead = catchAsync(async (req, res) => {
 });
 
 exports.updateLead = catchAsync(async (req, res) => {
-  const item = await Lead.findByIdAndUpdate(req.params.id, req.body, { new: true });
-  if (!item) throw new AppError('Lead not found', 404);
+  const lead = await Lead.findById(req.params.id);
+  if (!lead) throw new AppError('Lead not found', 404);
+
+  const updates = { ...req.body };
+
+  // Auto-set conversion timestamps on status transitions
+  if (updates.status && updates.status !== lead.status) {
+    if (updates.status === 'contacted' && !lead.conversions?.firstContactedAt) {
+      updates['conversions.firstContactedAt'] = new Date();
+    }
+    if (updates.status === 'quoted' && !lead.conversions?.quoteProvidedAt) {
+      updates['conversions.quoteProvidedAt'] = new Date();
+    }
+    if (updates.status === 'negotiating' && !lead.conversions?.negotiationStartedAt) {
+      updates['conversions.negotiationStartedAt'] = new Date();
+    }
+    if (updates.status === 'booked' && !lead.conversions?.bookedAt) {
+      updates['conversions.bookedAt'] = new Date();
+    }
+  }
+
+  const item = await Lead.findByIdAndUpdate(req.params.id, updates, { new: true, runValidators: true });
   res.json({ success: true, data: item });
 });
 

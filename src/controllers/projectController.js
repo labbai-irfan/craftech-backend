@@ -4,11 +4,15 @@ const AppError = require('../utils/AppError');
 const cloudinary = require('../config/cloudinary');
 
 exports.getAllProjects = catchAsync(async (req, res) => {
-  const result = await projectService.getAll(req.query, {
-    page: req.query.page,
-    limit: req.query.limit,
-    sort: req.query.sort || '-createdAt'
-  });
+  const filter = {};
+  if (typeof req.query.category === 'string') filter.category = req.query.category;
+  if (req.query.featured === 'true') filter.featured = true;
+
+  const page  = Math.max(1, parseInt(req.query.page, 10) || 1);
+  const limit = Math.min(50, Math.max(1, parseInt(req.query.limit, 10) || 12));
+  const sort  = ['-createdAt', 'createdAt', 'order', '-year'].includes(req.query.sort) ? req.query.sort : '-createdAt';
+
+  const result = await projectService.getAll(filter, { page, limit, sort });
   res.json({ success: true, ...result });
 });
 

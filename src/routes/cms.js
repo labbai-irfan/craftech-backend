@@ -1,15 +1,18 @@
 const express = require('express');
 const router = express.Router();
 const { protect } = require('../middleware/auth');
+const validate = require('../middleware/validate');
+const { leadSchema } = require('../validation/schemas');
 const {
   getHome, updateHome,
   getSettings, updateSettings,
   getAllTestimonials, createTestimonial, updateTestimonial, deleteTestimonial,
   getAllClients, createClient, updateClient, deleteClient,
-  getAllLeads, createLead, updateLead, deleteLead,
+  getAllLeads, createLead, updateLead, deleteLead, getLeadsByStatus,
   getProcessSteps, createProcessStep, updateProcessStep, deleteProcessStep,
   getWhyFeatures, createWhyFeature, updateWhyFeature, deleteWhyFeature
 } = require('../controllers/cmsController');
+const { getAllCTAs, getCTABySection, createCTA, updateCTA, deleteCTA } = require('../controllers/ctaController');
 
 // ── Public Routes ───────────────────────────────────────────────────────────
 router.get('/home', getHome);
@@ -18,7 +21,9 @@ router.get('/testimonials', getAllTestimonials);
 router.get('/clients', getAllClients);
 router.get('/process-steps', getProcessSteps);
 router.get('/why-features', getWhyFeatures);
-router.post('/leads', createLead);
+router.get('/ctas', getAllCTAs);
+router.get('/ctas/:section', getCTABySection);
+router.post('/leads', validate(leadSchema), createLead);
 
 // ── Protected Routes ────────────────────────────────────────────────────────
 router.put('/home', protect, updateHome);
@@ -42,8 +47,14 @@ router.post('/clients', protect, createClient);
 router.put('/clients/:id', protect, updateClient);
 router.delete('/clients/:id', protect, deleteClient);
 
+router.get('/leads/board/status', protect, getLeadsByStatus);
 router.get('/leads', protect, getAllLeads);
 router.put('/leads/:id', protect, updateLead);
 router.delete('/leads/:id', protect, deleteLead);
+
+// CTA Management
+router.post('/ctas', protect, createCTA);
+router.put('/ctas/:id', protect, updateCTA);
+router.delete('/ctas/:id', protect, deleteCTA);
 
 module.exports = router;

@@ -18,6 +18,7 @@ const app = express();
 
 connectDB();
 
+app.set('trust proxy', 1);  // Trust X-Forwarded-For header for accurate rate limiting in reverse proxy
 app.use(helmet());
 app.use(morgan(process.env.NODE_ENV === 'production' ? 'combined' : 'dev'));
 
@@ -36,8 +37,8 @@ app.use(cors({
   credentials: true,
 }));
 
-app.use(express.json({ limit: '50mb' }));
-app.use(express.urlencoded({ extended: true, limit: '50mb' }));
+app.use(express.json({ limit: '1mb' }));
+app.use(express.urlencoded({ extended: true, limit: '1mb' }));
 
 const apiLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
@@ -53,6 +54,14 @@ const authLimiter = rateLimit({
   message: 'Too many login attempts, please try again after 15 minutes.',
 });
 app.use('/api/admin/login', authLimiter);
+
+const leadLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000,  // 1 hour
+  max: 5,
+  message: 'Too many inquiries from this IP. Please try again later.',
+  skip: (req) => req.body?.website,  // Skip honeypot-filled requests
+});
+app.use('/api/cms/leads', leadLimiter);
 
 app.use('/api/admin', adminRoutes);
 app.use('/api/projects', projectRoutes);
@@ -74,6 +83,20 @@ app.all('*', (req, res, next) => {
 app.use(globalErrorHandler);
 
 const PORT = process.env.PORT || 5000;
-app.listen(PORT, () => {
+const server = app.listen(PORT, () => {
   console.log(`Craftech API running on port ${PORT} [${process.env.NODE_ENV}]`);
+});
+
+// Graceful shutdown on SIGTERM (docker stop, k8s termination, etc.)
+process.on('SIGTERM', () => {
+  console.log('SIGTERM received, closing server gracefully...');
+  server.close(() => {
+    console.log('Server closed. Exiting process.');
+    process.exit(0);
+  });
+  // Force exit after 30s if connections don't close
+  setTimeout(() => {
+    console.log('Forcing shutdown after 30s timeout');
+    process.exit(1);
+  }, 30000);
 });
